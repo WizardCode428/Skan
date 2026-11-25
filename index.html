@@ -650,11 +650,12 @@ html:has(dialog[open]){overflow:hidden}
 .print-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--ink)}
 .print-head strong{font:700 20px/1 "Unbounded",var(--font-body);letter-spacing:-.02em}
 .print-head span{font-size:13px;color:var(--muted)}
-@page{margin:16mm}
+@page{margin:0}
 @media print{
   html,body{background:#fff!important;background-image:none!important}
   body>*:not(#print-sheet){display:none!important}
-  #print-sheet{display:block;max-width:640px;margin:0 auto}
+  #print-sheet{display:block;max-width:none;margin:0;padding:16mm 18mm}
+  #print-sheet>*{max-width:640px;margin-left:auto;margin-right:auto}
   #print-sheet .estimate{padding:0;border:0;border-radius:0;box-shadow:none}
   #print-sheet *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
