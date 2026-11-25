@@ -50,7 +50,19 @@
     'acc.msg.saved': 'Пароль обновлён.',
     'acc.msg.wait': 'Слишком много попыток. Подождите минуту и попробуйте снова.',
     'acc.msg.net': 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
-    'acc.msg.err': 'Не получилось. Попробуйте ещё раз.'
+    'acc.msg.err': 'Не получилось. Попробуйте ещё раз.',
+    'up.privacy.live': 'Фото отправляются только на анализ и нигде не сохраняются. Сохраняется лишь смета, если вы сами её сохраните.',
+    'up.login': 'Войдите в аккаунт, чтобы получить анализ ваших фото. Без входа можно посмотреть пример.',
+    'up.err.quota': 'На сегодня лимит анализов исчерпан ({limit} в сутки). Попробуйте завтра.',
+    'up.err.photo': 'Не удалось прочитать фото. Попробуйте другое, в формате JPG или PNG.',
+    'up.err.service': 'Сервис анализа сейчас недоступен. Попробуйте позже или посмотрите пример.',
+    'up.err.auth': 'Сессия истекла. Войдите в аккаунт заново.',
+    'done.live': 'Предварительная оценка по фото. Цены ориентировочные: точную сумму назовёт мастер после осмотра.',
+    'res.none': 'На фото повреждений не найдено. Попробуйте снять повреждение ближе и при хорошем свете.',
+    'res.photo': 'Фото {n} с отмеченными повреждениями',
+    'res.unknown': 'не указан',
+    'est.prelim': 'предварительно',
+    'est.note.live': 'Цены ориентировочные и даны для демонстрации.'
   };
 
   const KK = {
@@ -236,6 +248,18 @@
     'acc.msg.wait': 'Әрекет тым көп. Бір минут күтіп, қайталап көріңіз.',
     'acc.msg.net': 'Сервермен байланыс жоқ. Интернетті тексеріп, қайталап көріңіз.',
     'acc.msg.err': 'Орындалмады. Қайталап көріңіз.',
+    'up.privacy.live': 'Фотолар тек талдауға жіберіледі және ешқайда сақталмайды. Смета өзіңіз сақтасаңыз ғана сақталады.',
+    'up.login': 'Фотоларыңызды талдау үшін аккаунтқа кіріңіз. Кірмей-ақ үлгіні көруге болады.',
+    'up.err.quota': 'Бүгінгі талдау лимиті таусылды (тәулігіне {limit}). Ертең қайталап көріңіз.',
+    'up.err.photo': 'Фотоны оқу мүмкін болмады. JPG немесе PNG форматындағы басқа фотоны таңдаңыз.',
+    'up.err.service': 'Талдау қызметі қазір қолжетімсіз. Кейінірек қайталаңыз немесе үлгіні қараңыз.',
+    'up.err.auth': 'Сессия аяқталды. Аккаунтқа қайта кіріңіз.',
+    'done.live': 'Фото бойынша алдын ала бағалау. Бағалар шамамен: нақты соманы шебер көлікті қарағаннан кейін айтады.',
+    'res.none': 'Фотода зақым табылмады. Зақымды жақыннан және жарық жерде түсіріп көріңіз.',
+    'res.photo': 'Зақымдары белгіленген {n}-фото',
+    'res.unknown': 'көрсетілмеген',
+    'est.prelim': 'алдын ала',
+    'est.note.live': 'Бағалар шамамен және демонстрация үшін берілген.',
     'acc.title': 'Жеке кабинет',
     'acc.guest': 'Қонақ',
     'acc.hint': 'Сметаларды сақтау үшін кіріңіз',
@@ -298,6 +322,7 @@
     if (meta) meta.setAttribute('content', t('meta.desc'));
     $$('.lang button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
     renderThumbs();
+    renderLive();
     updateShare();
     renderAccount();
     if (persist) { try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* хранилище недоступно */ } }
@@ -471,7 +496,7 @@
   function addFiles(list) {
     const images = Array.from(list).filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
     const room = MAX_PHOTOS - up.files.length;
-    images.slice(0, room).forEach((file) => up.files.push({ url: URL.createObjectURL(file) }));
+    images.slice(0, room).forEach((file) => up.files.push({ url: URL.createObjectURL(file), file }));
     renderThumbs();
     if (images.length < list.length) upStatus.textContent = t('up.notimage');
     else if (images.length > room) upStatus.textContent = t('up.limit', { max: MAX_PHOTOS });
@@ -490,10 +515,11 @@
     up.files = [];
     renderThumbs();
     $('#buy-note').hidden = true;
+    live.result = null;
     setStep('pick');
   }
 
-  function startScan() {
+  function startScan(analysis) {
     const first = up.files.find((f) => !f.broken);
     const img = $('#scan-img');
     const ph = $('#scan-ph');
@@ -523,34 +549,223 @@
       last.classList.add('is-done');
       setProgress(100);
     }, steps.length * stepMs));
-    up.timers.push(setTimeout(showResult, steps.length * stepMs + 500));
+    if (!analysis) { up.timers.push(setTimeout(showResult, steps.length * stepMs + 500)); return; }
+    // Настоящий анализ: экран «Анализируем…» держится, пока не придёт ответ
+    const minTime = new Promise((r) => up.timers.push(setTimeout(r, steps.length * stepMs + 500)));
+    const run = ++live.run;
+    Promise.all([analysis, minTime]).then(([res]) => {
+      if (run !== live.run || !upDlg.open) return;          // окно закрыли или начали заново
+      if (res.error) { setStep('pick'); renderThumbs(); upStatus.textContent = t('up.err.' + res.error, { limit: res.limit || '' }); return; }
+      live.result = res;
+      showResult();
+    });
+  }
+
+  // Копия сметы-образца со страницы: из неё собирается и пример, и настоящий результат
+  function cloneEstimate() {
+    const copy = $('#estimate').cloneNode(true);
+    copy.removeAttribute('id');
+    copy.removeAttribute('data-reveal');
+    copy.removeAttribute('aria-labelledby');
+    copy.classList.remove('is-in');
+    $$('[id]', copy).forEach((n) => n.removeAttribute('id'));
+    return copy;
   }
 
   function showResult() {
     const slot = $('#up-estimate');
-    if (!slot.firstChild) {
-      // показываем ту же смету-образец, что и на странице
-      const copy = $('#estimate').cloneNode(true);
-      copy.removeAttribute('id');
-      copy.removeAttribute('data-reveal');
-      copy.removeAttribute('aria-labelledby');
-      copy.classList.remove('is-in');
-      $$('[id]', copy).forEach((n) => n.removeAttribute('id'));
-      slot.append(copy);
-      updateShare();
-    }
+    $('#res-photos').textContent = '';
+    if (live.result) renderLive();
+    else { slot.textContent = ''; slot.append(cloneEstimate()); setMsg($('#done-note'), 'done.demo'); }
+    updateShare();
     setStep('done');
     upTitle.focus();
   }
 
-  upGo.addEventListener('click', startScan);
+  /* ==================================================================
+     Настоящий анализ фото: сжатие → серверная функция analyze → смета
+     ================================================================== */
+  const live = { result: null, run: 0 };
+  const MAX_SIDE = 1280;
+
+  // Ориентировочные цены, ₸, только для демонстрации. Замените на реальные (или задайте prices в config.js).
+  const PRICES = Object.assign({
+    front_bumper: { repair: 45000, replace: 85000 }, rear_bumper: { repair: 45000, replace: 80000 },
+    hood: { repair: 40000, replace: 120000 }, trunk_lid: { repair: 40000, replace: 110000 }, roof: { repair: 60000 },
+    front_left_fender: { repair: 35000, replace: 70000 }, front_right_fender: { repair: 35000, replace: 70000 },
+    rear_left_quarter_panel: { repair: 50000 }, rear_right_quarter_panel: { repair: 50000 },
+    front_left_door: { repair: 45000, replace: 150000 }, front_right_door: { repair: 45000, replace: 150000 },
+    rear_left_door: { repair: 45000, replace: 140000 }, rear_right_door: { repair: 45000, replace: 140000 },
+    left_headlight: { replace: 62000 }, right_headlight: { replace: 62000 },
+    left_taillight: { replace: 35000 }, right_taillight: { replace: 35000 },
+    windshield: { replace: 90000 }, rear_window: { replace: 60000 }
+  }, CFG.prices || {});
+  // Детектор говорит только «деталь повреждена». Пока нет второй ступени, действие берём типовое для детали.
+  const REPLACE_BY_DEFAULT = /headlight|taillight|windshield|window/;
+
+  const SD = window.SkanDamage;
+
+  function compress(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * k));
+        const h = Math.max(1, Math.round(img.naturalHeight * k));
+        const c = doc.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        const dataUrl = c.toDataURL('image/jpeg', 0.85);
+        resolve({ dataUrl, b64: dataUrl.split(',')[1], width: w, height: h });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  async function callAnalyze(b64) {
+    const { data, error } = await sb.functions.invoke('analyze', { body: { image: b64 } });
+    if (!error) return { data };
+    const res = error.context;
+    const status = res && typeof res.status === 'number' ? res.status : 0;
+    let info = {};
+    try { info = await res.json(); } catch (e) { /* не JSON */ }
+    if (status === 401) return { error: 'auth' };
+    if (status === 429) return { error: 'quota', limit: info.limit };
+    if (status === 400) return { error: 'photo' };
+    return { error: 'service' };
+  }
+
+  async function analyzeFiles(items) {
+    const photos = [];
+    let lastError = 'photo';
+    for (const item of items) {
+      const img = await compress(item.file);
+      if (!img) continue;
+      const r = await callAnalyze(img.b64);
+      if (r.error) {
+        if (r.error === 'auth' || r.error === 'quota' || r.error === 'service') return r;
+        lastError = r.error;
+        continue;
+      }
+      const d = r.data || {};
+      const preds = Array.isArray(d.predictions) ? d.predictions : [];
+      const size = d.image && d.image.width ? d.image : { width: img.width, height: img.height };
+      photos.push({ src: img.dataUrl, size, preds });
+    }
+    if (!photos.length) return { error: lastError };
+    const now = new Date();
+    const number = 'SK-' + now.toISOString().slice(0, 10).replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 9000) + 1000);
+    return { photos, number, date: now.toLocaleDateString('ru-RU') };
+  }
+
+  // Одна строка сметы на каждую повреждённую деталь (берём самую уверенную находку)
+  function liveRows(result) {
+    const best = {};
+    result.photos.forEach((p) => p.preds.forEach((d) => {
+      const code = SD.partCode(d.class);
+      if (!best[code] || d.confidence > best[code].confidence) best[code] = { code, confidence: d.confidence };
+    }));
+    return Object.values(best).sort((a, b) => b.confidence - a.confidence).map((r) => {
+      const price = PRICES[r.code] || {};
+      let action = REPLACE_BY_DEFAULT.test(r.code) ? 'replace' : 'repair_and_paint';
+      if (r.code === 'wheel' || r.confidence < SD.LOW_CONFIDENCE) action = 'inspect';
+      const sum = action === 'replace' ? price.replace : action === 'repair_and_paint' ? price.repair : 0;
+      return { code: r.code, action, price: sum || 0 };
+    });
+  }
+
+  function renderLive() {
+    const result = live.result;
+    if (!result || !SD) return;
+    // фото с рамками
+    const gal = $('#res-photos');
+    gal.textContent = '';
+    result.photos.forEach((p, i) => {
+      const fig = doc.createElement('figure');
+      fig.className = 'res-photo';
+      const img = doc.createElement('img');
+      img.src = p.src;
+      img.alt = t('res.photo', { n: i + 1 });
+      fig.append(img);
+      p.preds.forEach((d) => {
+        const box = doc.createElement('span');
+        box.className = 'res-box' + (d.confidence < SD.LOW_CONFIDENCE ? ' res-box--low' : '');
+        const pct = (v, total) => Math.max(0, Math.min(100, (v / total) * 100)) + '%';
+        box.style.left = pct(d.x - d.width / 2, p.size.width);
+        box.style.top = pct(d.y - d.height / 2, p.size.height);
+        box.style.width = pct(d.width, p.size.width);
+        box.style.height = pct(d.height, p.size.height);
+        const label = doc.createElement('span');
+        label.textContent = SD.damage({ part: d.class }, lang).part + ' · ' + Math.round(d.confidence * 100) + '%';
+        box.append(label);
+        fig.append(box);
+      });
+      gal.append(fig);
+    });
+    // смета
+    const rows = liveRows(result);
+    const est = cloneEstimate();
+    $('.estimate__no', est).textContent = '№ ' + result.number;
+    const tag = $('.estimate__head .tag', est);
+    tag.dataset.i18n = 'est.prelim';
+    tag.textContent = t('est.prelim');
+    const meta = $$('.estimate__meta dd', est);
+    meta[0].textContent = t('res.unknown');
+    meta[1].removeAttribute('data-i18n');
+    meta[1].textContent = t('res.unknown');
+    meta[2].textContent = result.date;
+    const tbody = $('tbody', est);
+    tbody.textContent = '';
+    rows.forEach((r) => {
+      const tr = doc.createElement('tr');
+      const th = doc.createElement('th');
+      th.scope = 'row';
+      th.textContent = SD.damage({ part: r.code }, lang).part;
+      const tdAct = doc.createElement('td');
+      const act = doc.createElement('span');
+      act.className = 'act ' + (r.action === 'replace' ? 'act--replace' : r.action === 'repair_and_paint' ? 'act--repair' : 'act--paint');
+      act.textContent = SD.damage({ suggested_action: r.action }, lang).action;
+      tdAct.append(act);
+      const tdPrice = doc.createElement('td');
+      tdPrice.className = 'num';
+      tdPrice.textContent = r.price ? money(r.price) : '—';
+      tr.append(th, tdAct, tdPrice);
+      tbody.append(tr);
+    });
+    const parts = rows.filter((r) => r.action === 'replace').reduce((a, r) => a + r.price, 0);
+    const works = rows.filter((r) => r.action !== 'replace').reduce((a, r) => a + r.price, 0);
+    const sums = $$('.estimate__sum dd', est);
+    sums[0].textContent = money(parts);
+    sums[1].textContent = money(works);
+    sums[2].textContent = money(parts + works);
+    const note = $('.estimate__note', est);
+    note.dataset.i18n = 'est.note.live';
+    note.textContent = t('est.note.live');
+    const slot = $('#up-estimate');
+    slot.textContent = '';
+    if (rows.length) slot.append(est);
+    setMsg($('#done-note'), rows.length ? 'done.live' : 'res.none');
+    updateShare();
+  }
+
+  upGo.addEventListener('click', () => {
+    if (!sbReady) { startScan(); return; }                       // Supabase не подключён — показываем пример
+    if (!sb || !user) { upStatus.textContent = t('up.login'); openDialog('account'); return; }
+    const items = up.files.filter((f) => f.file);
+    live.result = null;
+    startScan(analyzeFiles(items).catch(() => ({ error: 'service' })));
+  });
   $('#up-sample').addEventListener('click', () => {
     up.files.forEach((f) => URL.revokeObjectURL(f.url));
     up.files = [];
+    live.result = null;
     startScan();
   });
   $('#up-again').addEventListener('click', () => { resetUpload(); upTitle.focus(); });
-  upDlg.addEventListener('close', () => { clearTimers(); up.files.forEach((f) => URL.revokeObjectURL(f.url)); up.files = []; });
+  upDlg.addEventListener('close', () => { clearTimers(); live.run++; up.files.forEach((f) => URL.revokeObjectURL(f.url)); up.files = []; });
 
   /* ---------- Демо-формы: аккаунт и партнёры ---------- */
   $('#pt-form').addEventListener('submit', (e) => {
@@ -587,7 +802,7 @@
     const sums = $$('.estimate__sum dd', el).map((n) => digits(n.textContent));
     return {
       number: clean($('.estimate__no', el)).replace(/^№\s*/, ''),
-      sample: !!$('.estimate__head .tag', el),
+      sample: !!$('.estimate__head .tag[data-i18n="est.sample"]', el),
       car: meta[0] || '', city: meta[1] || '', date: meta[2] || '',
       items: $$('tbody tr', el).map((tr) => ({ name: clean(tr.children[0]), action: clean(tr.children[1]), price: digits(tr.children[2].textContent) })),
       parts: sums[0] || 0, works: sums[1] || 0, total: sums[2] || 0
@@ -596,8 +811,9 @@
 
   function shareText(d) {
     const head = t('est.kicker') + ' № ' + d.number + (d.sample ? ' (' + t('est.sample') + ')' : '');
-    const lines = [head, [d.car, d.city, d.date].filter(Boolean).join(' · '), ''];
-    d.items.forEach((it, i) => lines.push((i + 1) + '. ' + it.name + ' — ' + it.action + ' — ' + money(it.price)));
+    const unknown = t('res.unknown');
+    const lines = [head, [d.car, d.city, d.date].filter((v) => v && v !== unknown).join(' · '), ''];
+    d.items.forEach((it, i) => lines.push((i + 1) + '. ' + it.name + ' — ' + it.action + (it.price ? ' — ' + money(it.price) : '')));
     lines.push('', t('est.parts') + ': ' + money(d.parts), t('est.works') + ': ' + money(d.works), t('est.total') + ': ' + money(d.total), '', t('share.footer'));
     return { head, body: lines.join('\n') };
   }
@@ -659,6 +875,7 @@
     } catch (e) { return false; }
   })();
   const sbReady = /^https:\/\/[a-z0-9.-]+$/i.test(SB_URL) && SB_KEY.length > 20 && !keyIsSecret;
+  if (sbReady) { const pn = $('[data-i18n="up.privacy"]'); if (pn) { pn.dataset.i18n = 'up.privacy.live'; pn.textContent = t('up.privacy.live'); } }
   if (keyIsSecret) console.error('config.js: указан секретный ключ Supabase. Его нельзя публиковать: замените на publishable/anon и перевыпустите секретный.');
 
   let sb = null;
