@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Скан — оценка ремонта после ДТП по фото</title>
+<meta name="description" content="Сфотографируйте повреждения после ДТП: AI за пару минут покажет, что менять и красить, сколько это стоит и где купить запчасти у проверенных продавцов в Казахстане.">
+<meta name="theme-color" content="#F3F1EC">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ru_KZ">
+<meta property="og:title" content="Скан — оценка ремонта после ДТП по фото">
+<meta property="og:description" content="AI за пару минут посчитает ремонт по фото и подберёт запчасти с ценами.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2315171C'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23F3F1EC' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23FF5B1F'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+
+<script>
+/* Включаем анимации появления только при работающем JS; если основной скрипт не запустился — показываем всё. */
+document.documentElement.classList.add('js');
+setTimeout(function(){ if(!window.__skanReady) document.documentElement.classList.remove('js'); }, 4000);
+</script>
+
+<style>
+/* ==========================================================================
+   Скан — лендинг
+   Идея макета: «лист чертежа» — асимметричная сетка, выравнивание по левому
+   краю, волосяные линии и бледная миллиметровка. Оранжевый — только в кнопках
+   и выносках повреждений. Один тёмный блок («Как это работает»).
+   ========================================================================== */
+:root{
+  --bg:#F3F1EC;
+  --ink:#15171C;
+  --muted:#6B6F76;         /* вторичный текст на белых карточках (5.0:1) */
+  --muted-on-bg:#666A71;   /* тот же тон, чуть темнее: 4.8:1 на фоне --bg, проходит WCAG AA */
+  --accent:#FF5B1F;
+  --accent-press:#F24E12;
+  --card:#FFFFFF;
+  --line:#E2DED5;
+  --line-strong:#CDC8BD;
+  --on-dark:#F3F1EC;
+  --on-dark-muted:#A7A9AD;
+  --line-dark:rgba(243,241,236,.16);
+
+  --font-display:"Unbounded","Onest",system-ui,sans-serif;
+  --font-body:"Onest",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  /* В JetBrains Mono нет знака ₸ — он берётся из Onest, поэтому Onest стоит вторым */
+  --font-mono:"JetBrains Mono","Onest",ui-monospace,Menlo,Consolas,monospace;
+  --w-display:600;
+  --w-sub:500;
+  --track-display:-.03em;
+
+  --r-card:16px;
+  --r-btn:10px;
+  --r-sm:12px;
+  --shadow-soft:0 16px 32px -20px rgba(21,23,28,.3);
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --wrap:1200px;
+  --gutter:16px;
+}
+/* В Unbounded нет казахских букв (Ә Ғ Қ Ң Ө Ұ Ү Һ), поэтому в казахской версии
+   заголовки набираются Onest Bold — без «каши» из двух шрифтов внутри слова. */
+html[lang="kk"]{
+  --font-display:"Onest",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --w-display:700;
+  --w-sub:600;
+  --track-display:-.025em;
+}
+
+/* ---------- База ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;color-scheme:light;scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  margin:0;min-width:320px;color:var(--ink);
+  font:400 16px/1.55 var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  background-color:var(--bg);
+  /* миллиметровка: крупная клетка 80px и мелкая 16px */
+  background-image:
+    linear-gradient(to right,rgba(21,23,28,.04) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(21,23,28,.04) 1px,transparent 1px),
+    linear-gradient(to right,rgba(21,23,28,.02) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(21,23,28,.02) 1px,transparent 1px);
+  background-size:80px 80px,80px 80px,16px 16px,16px 16px;
+  background-position:50% 0;
+}
+img,svg{display:block;max-width:100%}
+h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.wrap{width:min(calc(100% - 2 * var(--gutter)),var(--wrap));margin-inline:auto}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.skip{position:absolute;left:16px;top:-64px;z-index:100;padding:8px 16px;border-radius:var(--r-btn);background:var(--ink);color:var(--bg);text-decoration:none;transition:top .2s}
+.skip:focus{top:8px}
+
+/* ---------- Типографика ---------- */
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance}
+h2{font-weight:var(--w-display);font-size:24px;line-height:1.1;letter-spacing:var(--track-display)}
+h3{font-weight:var(--w-sub);font-size:17px;line-height:1.25;letter-spacing:-.015em}
+.lead{font-size:17px;line-height:1.5;color:var(--muted-on-bg);max-width:52ch;text-wrap:pretty}
+.eyebrow{display:flex;align-items:center;gap:12px;margin-bottom:16px;font:500 12px/1.3 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted-on-bg)}
+.eyebrow::before{content:"";flex:none;width:24px;height:2px;background:var(--accent)}
+
+/* ---------- Кнопки ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:48px;padding:0 24px;border:1px solid transparent;border-radius:var(--r-btn);
+  font:500 16px/1.2 var(--font-body);text-decoration:none;text-align:center;cursor:pointer;
+  transition:transform .2s var(--ease),box-shadow .2s var(--ease),background-color .2s,border-color .2s,color .2s;
+}
+.btn--primary{background:var(--accent);color:var(--ink)}        /* графит на оранжевом: 5.8:1 */
+.btn--dark{background:var(--ink);color:var(--bg)}
+.btn--ghost{border-color:var(--ink);background:transparent;color:var(--ink)}
+.btn--text{min-height:40px;padding:0 8px;background:none;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px}
+.btn--lg{min-height:56px;padding:0 32px;font-size:17px}
+.btn--sm{min-height:40px;padding:0 16px;font-size:15px}
+.btn--block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:active:not(:disabled){transform:translateY(0);box-shadow:none}
+.btn--primary:active:not(:disabled){background:var(--accent-press)}
+@media (hover:hover){
+  .btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 12px 24px -12px rgba(21,23,28,.4)}
+  .btn--ghost:hover:not(:disabled){background:rgba(21,23,28,.04);box-shadow:none}
+  .btn--text:hover:not(:disabled){transform:none;box-shadow:none;text-decoration-color:var(--ink)}
+}
+.iconbtn{display:inline-grid;place-items:center;width:40px;height:40px;flex:none;border:0;border-radius:var(--r-btn);background:none;cursor:pointer;transition:background-color .2s}
+@media (hover:hover){.iconbtn:hover{background:rgba(21,23,28,.06)}}
+
+/* ---------- Шапка ---------- */
+.header{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid transparent;transition:border-color .2s}
+.header.is-stuck,.header.is-open{border-bottom-color:var(--line)}
+.header__row{display:flex;align-items:center;gap:8px;min-height:64px}
+.logo{display:inline-flex;align-items:center;gap:8px;margin-right:auto;font:700 18px/1 "Unbounded",var(--font-body);letter-spacing:-.02em;text-decoration:none}
+.logo__mark{width:20px;height:20px}
+.nav{display:none}
+.nav a{position:relative;padding:8px 0;font-size:15px;font-weight:500;text-decoration:none}
+.nav a::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:1px;background:var(--ink);transform:scaleX(0);transform-origin:left;transition:transform .25s var(--ease)}
+@media (hover:hover){.nav a:hover::after{transform:scaleX(1)}}
+.lang{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-strong);border-radius:var(--r-btn)}
+.lang button{min-width:40px;height:34px;padding:0 8px;border:0;border-radius:7px;background:none;font:500 12px/1 var(--font-body);letter-spacing:.06em;color:var(--muted-on-bg);cursor:pointer;transition:background-color .2s,color .2s}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.acc{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:40px;height:40px;padding:0 8px;border:0;border-radius:var(--r-btn);background:none;font:500 15px/1 var(--font-body);cursor:pointer;transition:background-color .2s}
+.acc__label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media (hover:hover){.acc:hover{background:rgba(21,23,28,.06)}}
+.header__cta{display:none}
+.mnav{position:absolute;left:0;right:0;top:100%;padding:8px var(--gutter) 24px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 24px 32px -24px rgba(21,23,28,.25)}
+.mnav a,.mnav__acc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:56px;padding:0;border:0;border-bottom:1px solid var(--line);background:none;font:500 18px/1.2 var(--font-body);text-decoration:none;text-align:left;cursor:pointer}
+.mnav .btn{margin-top:24px}
+@media (min-width:768px){
+  .header__row{gap:16px;min-height:72px}
+  .header__cta{display:inline-flex}
+}
+@media (min-width:1100px){
+  .logo{margin-right:40px;font-size:20px}
+  .nav{display:flex;gap:32px;margin-right:auto}
+  .acc__label{position:static;width:auto;height:auto;overflow:visible;clip-path:none}
+  .burger,.mnav{display:none!important}
+}
+
+/* ---------- Hero ---------- */
+/* Телефон: заголовок → текст и кнопки → чертёж → факты.
+   Десктоп: заголовок во всю ширину, под ним слева текст и кнопки, справа чертёж. */
+.hero{padding:24px 0 64px}
+.hero__grid{display:grid}
+.hero__grid>*{min-width:0}
+.hero h1{
+  font-weight:var(--w-display);
+  /* «Сфотографируйте —» в Unbounded ≈ 12.75em: размер привязан к ширине экрана, чтобы строка не вылезала */
+  font-size:clamp(21px,6.95vw,32px);line-height:1.08;letter-spacing:var(--track-display);
+}
+.h1-q{display:block}
+.hero__body{margin-top:24px}
+.hero__cta{display:grid;gap:8px;margin-top:32px}
+.sheet{margin-top:40px}
+.hero__facts{order:1;display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:24px;font-size:14px;color:var(--muted-on-bg)}
+.hero__facts li{display:flex;align-items:center;gap:8px}
+.hero__facts .ico{width:16px;height:16px;color:var(--ink)}
+@media (min-width:480px){.hero__cta{display:flex;flex-wrap:wrap;gap:16px}}
+@media (min-width:640px){
+  .hero h1{font-size:clamp(34px,5.7vw,40px)}
+  .lead{font-size:18px}
+  .hero__facts{order:0}
+}
+@media (min-width:768px){
+  .hero{padding:40px 0 96px}
+  .hero h1{font-size:clamp(40px,5.7vw,52px)}
+  .hero__body{margin-top:32px}
+  .sheet{margin-top:56px}
+}
+@media (min-width:1100px){
+  .hero{padding:40px 0 120px}
+  .hero__grid{grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:auto auto 1fr;column-gap:32px}
+  .hero h1{font-size:clamp(48px,4.4vw,64px)}
+  .hero__head{grid-column:1/-1}
+  .hero__body{grid-column:1/span 5;grid-row:2;margin-top:40px}
+  .hero__facts{grid-column:1/span 5;grid-row:3;align-self:start;margin-top:32px}
+  .sheet{grid-column:6/span 7;grid-row:2/span 2;margin-top:24px}
+  .lead{font-size:19px}
+}
+
+/* ---------- Чертёж автомобиля ---------- */
+.sheet{position:relative}
+.sheet__crop{position:relative;overflow:hidden;aspect-ratio:560/204}
+.sheet__svg{position:absolute;left:-2.857%;top:-68.63%;width:114.286%;max-width:none;height:auto;overflow:visible}
+.car line,.car path,.car circle,.bp line,.bp path{vector-effect:non-scaling-stroke}
+.car{fill:none;stroke:var(--ink);stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round}
+.car-body{fill:#FBFAF7}
+.car-glass{fill:rgba(21,23,28,.06)}
+.car-tire{fill:rgba(21,23,28,.08)}
+.car-rim{fill:#FBFAF7}
+.car-thin{stroke-width:.75}
+.bp{fill:none;stroke:var(--ink);stroke-width:1}
+.bp--faint{stroke:var(--line-strong)}
+.bp--axis{stroke:var(--muted);stroke-width:.75;stroke-dasharray:10 3 2 3}
+.bp--dim{stroke:var(--muted);stroke-width:.75}
+.bp-arrow{fill:var(--muted);stroke:none}
+.bp-num{fill:var(--muted-on-bg);stroke:none;font:500 15px var(--font-mono)}
+.bp-cap{display:none;fill:var(--muted-on-bg);font:500 11px var(--font-body);letter-spacing:.12em;text-transform:uppercase}
+.zone{fill:url(#hatch);stroke:var(--accent);stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.scanline{stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke;opacity:0}
+.leader{fill:none;stroke:var(--accent);stroke-width:1;stroke-dasharray:1;stroke-dashoffset:0}
+.leaders{display:none}
+.dot__ring{fill:none;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.dot__core{fill:var(--accent);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.dot__in{transform-box:fill-box;transform-origin:center}
+.mark path{fill:none;stroke:var(--accent);stroke-width:1.75}
+.mark circle{fill:var(--card);stroke:var(--ink);stroke-width:1.75}
+.mark text{fill:var(--ink);font:500 19px var(--font-mono);text-anchor:middle}
+
+/* подписи: на телефоне — спецификация под чертежом, с 640px — выноски на полках */
+.callouts{margin-top:16px;border-top:1px solid var(--ink)}
+.callout{display:grid;grid-template-columns:28px minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-strong)}
+.callout__n{grid-row:1/3;display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--ink);border-radius:50%;background:var(--card);font:500 13px/1 var(--font-mono)}
+.callout__name{grid-column:2;font-weight:500;line-height:1.3}
+.callout__meta{display:contents}
+.callout__act{grid-column:2;grid-row:2;font-size:14px;color:var(--muted-on-bg)}
+.callout__price{grid-column:3;grid-row:1/3;font:500 15px/1 var(--font-mono);white-space:nowrap}
+.sheet__total{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding-top:16px;font-size:14px;color:var(--muted-on-bg)}
+.sheet__total strong{font:500 20px/1 var(--font-mono);color:var(--ink);white-space:nowrap}
+
+@media (min-width:640px){
+  .sheet{aspect-ratio:640/440;max-width:720px}
+  .sheet__crop{position:absolute;inset:0;overflow:visible;aspect-ratio:auto}
+  .sheet__svg{position:static;width:100%;height:100%}
+  .bp-num{font-size:10.5px}
+  .bp-cap{display:block}
+  .marks{display:none}
+  .leaders{display:block}
+  .callouts{position:absolute;inset:0;margin:0;border:0;pointer-events:none}
+  .callout{
+    position:absolute;left:calc(var(--x) / 640 * 100%);top:calc((var(--y) - 40) / 440 * 100%);
+    display:grid;grid-template-columns:auto auto;column-gap:8px;row-gap:2px;align-items:center;
+    padding:0 16px 8px 0;border:0;border-bottom:1px solid var(--accent);
+    transform:translateY(-100%);white-space:nowrap;
+  }
+  .callout--below{padding:8px 16px 0 0;border-bottom:0;border-top:1px solid var(--accent);transform:none}
+  .callout__n{grid-row:auto;width:20px;height:20px;font-size:11px}
+  .callout__name{font-size:15px}
+  .callout__meta{display:flex;gap:8px;grid-column:2;align-items:baseline}
+  .callout__act{grid-column:auto;grid-row:auto;font-size:13px}
+  .callout__price{grid-column:auto;grid-row:auto;font-size:13px}
+  .callout__price::before{content:"·";margin-right:8px;color:var(--muted-on-bg)}
+  .sheet__total{
+    position:absolute;right:0;bottom:0;flex-direction:column;align-items:flex-start;gap:8px;
+    padding:12px 16px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);
+    font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  .sheet__total strong{font-size:18px;letter-spacing:0}
+}
+
+/* последовательное появление выносок */
+@media (prefers-reduced-motion:no-preference){
+  .js .sheet .zone,.js .sheet .dot__in,.js .sheet .mark,.js .sheet .callout,.js .sheet .sheet__total{
+    transition:opacity .5s var(--ease),scale .5s var(--ease),translate .5s var(--ease);
+    transition-delay:calc(1.1s + var(--i,0) * .45s);
+  }
+  .js .sheet .leader{transition:stroke-dashoffset .6s var(--ease);transition-delay:calc(1.2s + var(--i,0) * .45s)}
+  .js .sheet .callout{transition-delay:calc(1.45s + var(--i,0) * .45s)}
+  .js .sheet .sheet__total{transition-delay:2.8s}
+  .js .sheet:not(.is-on) .zone,.js .sheet:not(.is-on) .dot__in,.js .sheet:not(.is-on) .mark,
+  .js .sheet:not(.is-on) .callout,.js .sheet:not(.is-on) .sheet__total{opacity:0}
+  .js .sheet:not(.is-on) .dot__in{scale:.3}
+  .js .sheet:not(.is-on) .callout,.js .sheet:not(.is-on) .sheet__total{translate:0 8px}
+  .js .sheet:not(.is-on) .leader{stroke-dashoffset:1}
+  .js .sheet.is-on .scanline{animation:sweep 1.3s .1s ease-in-out both}
+}
+@keyframes sweep{
+  0%{transform:translateX(56px);opacity:0}
+  12%,88%{opacity:1}
+  100%{transform:translateX(596px);opacity:0}
+}
+
+/* ---------- Секции ---------- */
+.section{padding:64px 0}
+.section[id]{scroll-margin-top:64px}
+.section__head{max-width:720px;margin-bottom:32px}
+@media (min-width:768px){
+  :root{--gutter:32px}
+  h2{font-size:32px}
+  h3{font-size:18px}
+  .section{padding:96px 0}
+  .section__head{margin-bottom:48px}
+}
+@media (min-width:1100px){
+  :root{--gutter:40px}
+  h2{font-size:40px}
+  h3{font-size:20px}
+  .section{padding:120px 0}
+  .section__head{margin-bottom:64px}
+}
+
+/* появление при скролле */
+@media (prefers-reduced-motion:no-preference){
+  .js [data-reveal]{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:calc(var(--i,0) * 90ms)}
+  .js [data-reveal].is-in{opacity:1;transform:none}
+}
+
+/* ---------- Проблема ---------- */
+.cards{display:grid;gap:16px}
+.card{height:100%;padding:24px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--card);transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s}
+.card__ico{display:grid;place-items:center;width:48px;height:48px;margin-bottom:24px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.card__ico .ico{width:24px;height:24px}
+.card h3{margin-bottom:8px}
+.card p{color:var(--muted)}
+@media (hover:hover){.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-soft);border-color:var(--line-strong)}}
+@media (min-width:768px) and (max-width:1099.98px){
+  .card{display:grid;grid-template-columns:48px 1fr;column-gap:24px;padding:32px}
+  .card__ico{grid-row:1/3;margin:0}
+}
+@media (min-width:1100px){
+  .problem__head{max-width:560px}
+  .cards{grid-template-columns:repeat(3,1fr);gap:24px;align-items:start}
+  .cards>li:nth-child(2){margin-top:32px}
+  .cards>li:nth-child(3){margin-top:64px}
+  .card{padding:32px}
+  .card__ico{margin-bottom:48px}
+}
+
+/* ---------- Как это работает (тёмный блок) ---------- */
+.how{
+  color:var(--on-dark);background-color:var(--ink);
+  background-image:
+    linear-gradient(to right,rgba(243,241,236,.035) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(243,241,236,.035) 1px,transparent 1px);
+  background-size:80px 80px;background-position:50% 0;
+}
+.how :focus-visible{outline-color:var(--on-dark)}
+.how .eyebrow{color:var(--on-dark-muted)}
+.how__grid{display:grid;gap:40px}
+.how__intro p:not(.eyebrow){margin-top:16px;color:var(--on-dark-muted);max-width:40ch}
+.how__cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:32px}
+.how__cta>span{font-size:14px;color:var(--on-dark-muted)}
+.steps{border-bottom:1px solid var(--line-dark)}
+.step{display:grid;gap:16px;padding:32px 0;border-top:1px solid var(--line-dark)}
+.step__num{font:400 56px/1 var(--font-mono);letter-spacing:-.06em;color:var(--accent)}
+.step__title{display:grid;gap:16px}
+.step__title .ico{width:24px;height:24px;color:var(--on-dark-muted)}
+.step p{color:var(--on-dark-muted);max-width:44ch}
+@media (min-width:768px){
+  .step{grid-template-columns:120px minmax(0,1fr);gap:16px 32px;padding:40px 0}
+  .step__num{grid-row:1/3;font-size:72px}
+}
+@media (min-width:1100px){
+  .how__grid{grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:64px}
+  .how__intro{position:sticky;top:120px;align-self:start}
+  .step{grid-template-columns:152px minmax(0,1fr) minmax(0,1fr);gap:32px}
+  .step__num{grid-row:auto;font-size:88px}
+  .step p{padding-top:40px}
+}
+
+/* ---------- Пример результата ---------- */
+.result__grid{display:grid;gap:40px}
+.result__copy .lead{margin-top:16px}
+.ticks{display:grid;gap:16px;margin-top:32px}
+.ticks li{display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start}
+.ticks .ico{width:24px;height:24px}
+@media (min-width:1100px){
+  .result__grid{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:96px;align-items:center}
+}
+
+.estimate{padding:24px 16px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--card);box-shadow:0 32px 48px -40px rgba(21,23,28,.35)}
+.estimate__head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:16px;border-bottom:1px dashed var(--line-strong)}
+.estimate__kicker{font:500 12px/1.3 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.estimate__no{margin-top:8px;font:500 16px/1.2 var(--font-mono)}
+.tag{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px solid var(--line-strong);border-radius:6px;font:500 11px/1 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.estimate__meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 0;border-bottom:1px dashed var(--line-strong);font-size:14px}
+.estimate__meta dt{font-size:12px;color:var(--muted)}
+.estimate__meta dd{margin-top:4px;font-weight:500}
+.estimate__meta div:first-child{grid-column:1/-1}
+.estimate__table{width:100%;border-collapse:collapse;font-size:15px}
+.estimate__table th,.estimate__table td{padding:12px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-weight:400}
+.estimate__table th+td,.estimate__table td+td,.estimate__table th+th{padding-left:12px}
+.estimate__table thead th{padding-top:16px;font:500 11px/1.3 var(--font-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.estimate__table tbody th{font-weight:500}
+.estimate__table .num{text-align:right;white-space:nowrap}
+.estimate__table td.num{font:500 15px/1.55 var(--font-mono)}
+.act{display:inline-flex;align-items:center;gap:8px;font-size:14px;white-space:nowrap}
+.act::before{content:"";flex:none;width:8px;height:8px;border:1.5px solid var(--ink);border-radius:50%}
+.act--replace::before{border-color:var(--accent);background:var(--accent)}
+.act--repair::before{background:var(--ink)}
+.estimate__sum{padding:16px 0 8px;font-size:15px}
+.estimate__sum div{display:flex;justify-content:space-between;gap:16px;padding:4px 0}
+.estimate__sum dt{color:var(--muted)}
+.estimate__sum dd{font-family:var(--font-mono);white-space:nowrap}
+.estimate__sum .estimate__total{align-items:baseline;margin-top:12px;padding-top:16px;border-top:3px double var(--ink)}
+.estimate__total dt{font:var(--w-sub) 16px/1.2 var(--font-display);color:var(--ink)}
+.estimate__total dd{font:500 24px/1 var(--font-mono);letter-spacing:-.03em}
+.estimate .btn{margin-top:16px}
+.estimate__note{margin-top:16px;font-size:13px;color:var(--muted);text-align:center}
+@media (min-width:480px){
+  .estimate{padding:32px}
+  .estimate__meta{grid-template-columns:2fr 1fr 1fr}
+  .estimate__meta div:first-child{grid-column:auto}
+  .estimate__total dd{font-size:28px}
+}
+
+/* ---------- Партнёрам ---------- */
+.partners__panel{display:grid;gap:40px;padding:32px 24px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--card)}
+.partners__copy .lead{margin:16px 0 32px;color:var(--muted)}
+.plist li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:16px;padding:24px 0;border-top:1px solid var(--line)}
+.plist li:last-child{padding-bottom:0}
+.plist__ico{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.plist__ico .ico{width:24px;height:24px}
+.plist h3{margin-bottom:8px;font-size:17px}
+.plist p{color:var(--muted)}
+@media (min-width:768px){.partners__panel{padding:48px}}
+@media (min-width:1100px){
+  .partners__panel{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:96px;padding:64px}
+  .plist li:first-child{padding-top:0;border-top:0}
+  .plist h3{font-size:18px}
+}
+
+/* ---------- Преимущества ---------- */
+.stats__grid{border-top:1px solid var(--ink)}
+.stat{padding:32px 0;border-bottom:1px solid var(--line-strong)}
+.stat__num{display:flex;align-items:baseline;gap:8px;margin-bottom:16px;font:500 72px/1 var(--font-mono);letter-spacing:-.06em}
+.stat__num small{font-size:.36em;font-weight:500;letter-spacing:0}
+.stat h3{margin-bottom:8px}
+.stat p:last-child{color:var(--muted-on-bg);max-width:32ch}
+@media (min-width:768px){
+  .stats__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stat{padding:40px 24px 0 0;border-bottom:0}
+  .stat+.stat{padding-left:24px;border-left:1px solid var(--line-strong)}
+  .stat__num{font-size:64px}
+}
+@media (min-width:1100px){
+  .stat{padding:48px 40px 0 0}
+  .stat+.stat{padding-left:40px}
+  .stat__num{margin-bottom:32px;font-size:104px}
+}
+
+/* ---------- FAQ ---------- */
+.faq__grid{display:grid;gap:32px}
+.faq__aside p:not(.eyebrow){margin-top:16px;color:var(--muted-on-bg);max-width:36ch}
+.faq__list{border-top:1px solid var(--ink)}
+.faq__item{border-bottom:1px solid var(--line-strong)}
+.faq__q{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:24px 0;border:0;background:none;font:var(--w-sub) 16px/1.3 var(--font-display);letter-spacing:-.015em;text-align:left;cursor:pointer}
+.faq__plus{display:grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid var(--line-strong);border-radius:50%;transition:transform .3s var(--ease),background-color .2s,border-color .2s,color .2s}
+.faq__item.is-open .faq__plus{transform:rotate(45deg);background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.faq__a{display:grid;grid-template-rows:1fr}
+.faq__a>div{overflow:hidden}
+.faq__a p{padding:0 56px 24px 0;color:var(--muted-on-bg);max-width:64ch}
+.js .faq__a{grid-template-rows:0fr;transition:grid-template-rows .35s var(--ease)}
+.js .faq__a>div{visibility:hidden;transition:visibility 0s .35s}
+.js .faq__item.is-open .faq__a{grid-template-rows:1fr}
+.js .faq__item.is-open .faq__a>div{visibility:visible;transition-delay:0s}
+@media (hover:hover){.faq__q:hover .faq__plus{border-color:var(--ink)}}
+@media (min-width:768px){.faq__q{padding:32px 0;font-size:18px}.faq__a p{padding-bottom:32px}}
+@media (min-width:1100px){
+  .faq__grid{grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:64px}
+  .faq__aside{position:sticky;top:120px;align-self:start}
+}
+
+/* ---------- Финальный CTA ---------- */
+.cta{padding-top:0}
+.cta__panel{position:relative;display:grid;gap:32px;padding:48px 24px;border:1px solid var(--line);border-radius:var(--r-card);background:var(--card)}
+.cta__panel::before,.cta__panel::after{content:"";position:absolute;width:16px;height:16px;border:0 solid var(--accent)}
+.cta__panel::before{left:16px;top:16px;border-width:2px 0 0 2px}
+.cta__panel::after{right:16px;bottom:16px;border-width:0 2px 2px 0}
+.cta__panel h2{font-size:28px}
+.cta__panel p{margin-top:16px;color:var(--muted);max-width:44ch;font-size:17px}
+@media (min-width:768px){.cta__panel{padding:64px 48px}.cta__panel h2{font-size:40px}}
+@media (min-width:1100px){
+  .cta__panel{grid-template-columns:minmax(0,8fr) minmax(0,4fr);align-items:end;padding:96px 80px}
+  .cta__panel h2{font-size:56px;line-height:1.05}
+  .cta__action{justify-self:end}
+}
+
+/* ---------- Футер ---------- */
+.footer{padding:48px 0 112px;border-top:1px solid var(--line-strong);font-size:15px}
+.footer__grid{display:grid;gap:40px}
+.footer__about p{margin-top:16px;color:var(--muted-on-bg);max-width:36ch}
+.footer h2{margin-bottom:16px;font:500 12px/1.3 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted-on-bg)}
+.footer ul{display:grid;gap:8px}
+.footer li a{display:inline-flex;align-items:center;gap:8px;min-height:32px;text-decoration:none}
+.footer li a .ico{width:18px;height:18px}
+.footer address{font-style:normal}
+@media (hover:hover){.footer li a:hover{text-decoration:underline;text-underline-offset:4px}}
+.footer__bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;margin-top:48px;padding-top:24px;border-top:1px solid var(--line);font-size:14px;color:var(--muted-on-bg)}
+@media (min-width:768px){
+  .footer{padding:64px 0 40px}
+  .footer__grid{grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
+}
+
+/* ---------- Нижняя кнопка на телефоне ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:12px var(--gutter);background:var(--bg);border-top:1px solid var(--line);transform:translateY(100%);visibility:hidden;transition:transform .3s var(--ease),visibility 0s .3s}
+.dock.is-on{transform:none;visibility:visible;transition-delay:0s}
+@media (min-width:768px){.dock{display:none}}
+
+/* ---------- Диалоги ---------- */
+.dlg{flex-direction:column;width:100%;max-width:100%;max-height:92dvh;margin:auto 0 0;padding:0;border:0;border-radius:var(--r-card) var(--r-card) 0 0;background:var(--card);color:var(--ink);overflow:hidden;box-shadow:0 -16px 48px -16px rgba(21,23,28,.4)}
+.dlg[open]{display:flex}
+.dlg::backdrop{background:rgba(21,23,28,.56)}
+html:has(dialog[open]){overflow:hidden}
+.dlg__head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 16px 16px 24px;border-bottom:1px solid var(--line)}
+.dlg__title{font:var(--w-sub) 17px/1.25 var(--font-display);letter-spacing:-.015em;outline:none}
+.dlg__body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:24px}
+.dlg__foot{display:grid;gap:8px;padding:16px 24px 24px;border-top:1px solid var(--line)}
+@media (min-width:640px){
+  .dlg{width:min(560px,calc(100% - 32px));max-height:min(760px,calc(100dvh - 48px));margin:auto;border-radius:var(--r-card);box-shadow:0 32px 64px -24px rgba(21,23,28,.5)}
+  .dlg--sm{width:min(440px,calc(100% - 32px))}
+}
+@media (prefers-reduced-motion:no-preference){
+  .dlg[open]{animation:dlg-in .3s var(--ease)}
+  .dlg[open]::backdrop{animation:fade-in .3s ease}
+}
+@keyframes dlg-in{from{opacity:0;transform:translateY(24px)}}
+@keyframes fade-in{from{opacity:0}}
+
+.note{display:grid;grid-template-columns:20px 1fr;gap:8px;margin-top:16px;font-size:14px;line-height:1.45;color:var(--muted)}
+.note .ico{margin-top:1px}
+.note--box{padding:12px 16px;margin:0 0 16px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
+.note--box .ico{color:var(--accent)}
+
+/* загрузка фото */
+.drop{display:grid;justify-items:center;gap:8px;padding:32px 16px;border:1px dashed var(--line-strong);border-radius:var(--r-sm);background:var(--bg);text-align:center;cursor:pointer;transition:border-color .2s,background-color .2s}
+.drop strong{font-weight:500}
+.drop__ico{display:grid;place-items:center;width:56px;height:56px;margin-bottom:8px;border:1px solid var(--line-strong);border-radius:50%;background:var(--card)}
+.drop__ico .ico{width:24px;height:24px}
+.drop__hint{font-size:14px;color:var(--muted-on-bg)}
+.drop:focus-within{outline:2px solid var(--ink);outline-offset:3px}
+.drop.is-over{border-color:var(--ink);background:var(--card)}
+@media (hover:hover){.drop:hover{border-color:var(--ink)}}
+.up-status{min-height:24px;margin-top:16px;font-size:14px;color:var(--muted)}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.thumbs:not(:empty){margin-top:8px}
+.thumbs li{position:relative;aspect-ratio:1;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-btn);background:var(--bg)}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs__ph{display:grid;place-items:center;width:100%;height:100%;color:var(--muted)}
+.thumbs button{position:absolute;right:4px;top:4px;display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:var(--ink);color:var(--bg);cursor:pointer}
+.thumbs button .ico{width:16px;height:16px}
+.thumbs button:focus-visible{outline-color:var(--accent)}
+.tips{display:grid;gap:8px;margin-top:16px;font-size:14px}
+.tips li{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:start}
+.tips .ico{width:16px;height:16px;margin-top:3px}
+
+/* экран анализа */
+.scan{position:relative;aspect-ratio:16/10;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-sm);background-color:var(--bg);
+  background-image:linear-gradient(to right,rgba(21,23,28,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(21,23,28,.05) 1px,transparent 1px);background-size:16px 16px}
+.scan img{width:100%;height:100%;object-fit:cover}
+.scan__ph{display:grid;place-items:center;width:100%;height:100%;color:var(--ink)}
+.scan__ph .ico{width:72px;height:72px;stroke-width:1}
+.scan__line{position:absolute;inset:0;border-top:2px solid var(--accent);animation:scan-y 1.5s ease-in-out infinite alternate}
+@keyframes scan-y{from{transform:translateY(4%)}to{transform:translateY(96%)}}
+.scan__steps{display:grid;gap:12px;margin:24px 0}
+.scan__steps li{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;color:var(--muted);transition:color .3s}
+.scan__dot{display:grid;place-items:center;width:20px;height:20px;border:1.5px solid var(--line-strong);border-radius:50%;transition:background-color .3s,border-color .3s}
+.scan__dot .ico{width:12px;height:12px;stroke-width:2.5;color:var(--bg);opacity:0;transition:opacity .3s}
+.scan__steps .is-active{color:var(--ink)}
+.scan__steps .is-active .scan__dot{border-color:var(--accent);border-right-color:transparent;animation:spin .8s linear infinite}
+.scan__steps .is-done{color:var(--ink)}
+.scan__steps .is-done .scan__dot{border-color:var(--ink);background:var(--ink)}
+.scan__steps .is-done .ico{opacity:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress{height:4px;overflow:hidden;border-radius:2px;background:var(--line)}
+.progress span{display:block;width:0;height:100%;background:var(--accent);transition:width .6s ease}
+@media (prefers-reduced-motion:reduce){
+  .scan__line,.scan__steps .is-active .scan__dot{animation:none}
+  html{scroll-behavior:auto}
+}
+.dlg .estimate{padding:0;border:0;border-radius:0;box-shadow:none}
+
+/* формы в диалогах */
+.field{display:grid;gap:8px;margin-bottom:16px}
+.field label{font-size:14px;font-weight:500}
+.field input,.field select{width:100%;height:48px;padding:0 16px;border:1px solid var(--line-strong);border-radius:var(--r-btn);background:var(--card);font-size:16px;transition:border-color .2s}
+.field input::placeholder{color:#8A8D93}
+.field input:hover,.field select:hover{border-color:var(--muted)}
+.field input:focus-visible,.field select:focus-visible{outline:2px solid var(--ink);outline-offset:1px;border-color:var(--ink)}
+.acc-card{display:grid;grid-template-columns:48px 1fr auto;gap:16px;align-items:center;margin-bottom:24px;padding:16px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
+.acc-ava{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--line-strong);border-radius:50%;background:var(--card)}
+.acc-card strong{display:block;font-weight:500}
+.acc-card span span{font-size:14px;color:var(--muted-on-bg)}
+.acc-list{margin-top:24px;border-top:1px solid var(--line)}
+.acc-list li{display:grid;grid-template-columns:20px 1fr auto;gap:16px;align-items:center;min-height:56px;border-bottom:1px solid var(--line);color:var(--muted)}
+.done{display:grid;justify-items:start;gap:16px}
+.done__ico{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--ink);color:var(--bg)}
+
+/* ---------- Получение сметы: WhatsApp, Telegram, PDF ---------- */
+.estimate__get{margin-top:24px;padding-top:16px;border-top:1px dashed var(--line-strong)}
+.estimate__get-t{font:500 12px/1.3 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.share{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.estimate .share .btn{margin-top:0;padding:0 4px;font-size:15px}
+.estimate .estimate__save{width:100%;margin-top:8px}
+.share__status{margin-top:8px;font-size:14px;color:var(--muted);text-align:center}
+@media (max-width:479.98px){.share .ico{display:none}}
+
+/* ---------- Личный кабинет ---------- */
+.acc{position:relative}
+.acc.is-auth::after{content:"";position:absolute;left:22px;top:8px;width:8px;height:8px;border:2px solid var(--bg);border-radius:50%;background:var(--accent);box-sizing:content-box}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:24px;padding:2px;border:1px solid var(--line-strong);border-radius:var(--r-btn)}
+.seg button{height:40px;border:0;border-radius:7px;background:none;font:500 15px/1 var(--font-body);color:var(--muted);cursor:pointer;transition:background-color .2s,color .2s}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.field__hint{font-size:13px;color:var(--muted)}
+#acc-forgot{margin-top:8px}
+.acc-consent{margin-top:16px;font-size:13px;line-height:1.45;color:var(--muted)}
+.acc-card{grid-template-columns:48px minmax(0,1fr)}
+.acc-card__email{font-weight:500;overflow-wrap:anywhere}
+.acc-h{margin-bottom:8px;font:500 12px/1.3 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.acc-est{border-top:1px solid var(--line)}
+.acc-est:empty{display:none}
+.acc-est li{display:grid;grid-template-columns:minmax(0,1fr) auto 40px;gap:0 16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.acc-est__t{min-width:0;font:500 14px/1.4 var(--font-mono);overflow-wrap:anywhere}
+.acc-est__d{grid-column:1;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.acc-est__sum{grid-column:2;grid-row:1/3;font:500 15px/1 var(--font-mono);white-space:nowrap}
+.acc-est__del{grid-column:3;grid-row:1/3;color:var(--muted)}
+.acc-est__del[data-armed]{background:var(--ink);color:var(--bg)}
+.acc-empty{padding:12px 0;font-size:14px;color:var(--muted)}
+#acc-user .acc-list{margin:16px 0 24px}
+
+/* ---------- Результат анализа: фото с рамками ---------- */
+.res-photos{display:grid;gap:8px;margin-bottom:16px}
+.res-photos:empty{display:none}
+.res-photo{position:relative;margin:0;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
+.res-photo img{width:100%;height:auto}
+.res-box{position:absolute;border:2px solid var(--accent);border-radius:4px}
+.res-box--low{border-style:dashed}
+.res-box>span{position:absolute;left:0;top:0;max-width:100%;padding:2px 6px;overflow:hidden;border-radius:0 0 4px 0;background:var(--accent);color:var(--ink);font:500 11px/1.3 var(--font-body);text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Печать: на лист попадает только смета ---------- */
+#print-sheet{display:none}
+.print-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--ink)}
+.print-head strong{font:700 20px/1 "Unbounded",var(--font-body);letter-spacing:-.02em}
+.print-head span{font-size:13px;color:var(--muted)}
+@page{margin:0}
+@media print{
+  html,body{background:#fff!important;background-image:none!important}
+  body>*:not(#print-sheet){display:none!important}
+  #print-sheet{display:block;max-width:none;margin:0;padding:16mm 18mm}
+  #print-sheet>*{max-width:640px;margin-left:auto;margin-right:auto}
+  #print-sheet .estimate{padding:0;border:0;border-radius:0;box-shadow:none}
+  #print-sheet *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+
+<body>
+<!-- Иконки: набор Lucide (ISC), обводка 1.5 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+    <symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-trending" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5l-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main" data-i18n="a11y.skip">Перейти к содержанию</a>
+
+<!-- ============ Шапка ============ -->
+<header class="header" id="top">
+  <div class="wrap header__row">
+    <a class="logo" href="#top" aria-label="Скан — на главную" data-i18n-attr="aria-label:a11y.home">
+      <svg class="logo__mark" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.75" fill="none" stroke="#15171C" stroke-width="1.5"/><circle cx="10" cy="10" r="3.75" fill="#FF5B1F"/></svg>
+      <span data-brand>Скан</span>
+    </a>
+
+    <nav class="nav" aria-label="Основная навигация" data-i18n-attr="aria-label:a11y.nav">
+      <a href="#how" data-i18n="nav.how">Как работает</a>
+      <a href="#partners" data-i18n="nav.partners">Для СТО и продавцов</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
+    </nav>
+
+    <div class="lang" role="group" aria-label="Язык сайта" data-i18n-attr="aria-label:a11y.lang">
+      <button type="button" data-lang="ru" aria-pressed="true" lang="ru" title="Русский">РУС</button>
+      <button type="button" data-lang="kk" aria-pressed="false" lang="kk" title="Қазақша">ҚАЗ</button>
+    </div>
+
+    <!-- Вкладка «Аккаунт»: пока только для вида, открывает демо-окно -->
+    <button class="acc" type="button" data-open="account" aria-haspopup="dialog">
+      <svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>
+      <span class="acc__label" data-i18n="nav.account">Аккаунт</span>
+    </button>
+
+    <button class="btn btn--primary btn--sm header__cta" type="button" data-open="upload" data-i18n="cta.estimate">Оценить ущерб</button>
+
+    <button class="iconbtn burger" type="button" aria-expanded="false" aria-controls="mnav" aria-label="Меню" data-i18n-attr="aria-label:a11y.menu">
+      <svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg>
+    </button>
+  </div>
+
+  <div class="mnav" id="mnav" hidden>
+    <a href="#how" data-i18n="nav.how">Как работает</a>
+    <a href="#partners" data-i18n="nav.partners">Для СТО и продавцов</a>
+    <a href="#faq" data-i18n="nav.faq">FAQ</a>
+    <button class="mnav__acc" type="button" data-open="account"><span data-i18n="nav.account">Аккаунт</span><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg></button>
+    <button class="btn btn--primary btn--block" type="button" data-open="upload" data-i18n="cta.estimate">Оценить ущерб</button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ Hero ============ -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero__grid">
+    <div class="hero__head" data-reveal>
+      <p class="eyebrow" data-i18n="hero.eyebrow">AI-оценка ущерба · Казахстан</p>
+      <h1 id="hero-title" data-i18n="hero.title"><span class="h1-q">Попали в ДТП?</span> Сфотографируйте&nbsp;— мы посчитаем ремонт</h1>
+    </div>
+    <div class="hero__body" data-reveal style="--i:1">
+      <p class="lead" data-i18n="hero.lead">AI за пару минут покажет, что менять, что красить, сколько это стоит и где купить запчасти дешевле</p>
+      <div class="hero__cta" id="hero-cta">
+        <button class="btn btn--primary btn--lg" type="button" data-open="upload">
+          <svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="cta.upload">Загрузить фото</span>
+        </button>
+        <a class="btn btn--ghost btn--lg" href="#how">
+          <span data-i18n="cta.how">Как это работает</span><svg class="ico" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+        </a>
+      </div>
+    </div>
+    <ul class="hero__facts" data-reveal style="--i:2">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="hero.f1">Бесплатно для водителя</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="hero.f2">Результат за 2 минуты</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="hero.f3">Проверенные продавцы</span></li>
+    </ul>
+
+    <figure class="sheet" id="sheet">
+      <div class="sheet__crop">
+        <svg class="sheet__svg" viewBox="0 40 640 440" role="img" aria-labelledby="car-t car-d">
+          <title id="car-t" data-i18n="car.t">Схема автомобиля с отмеченными повреждениями</title>
+          <desc id="car-d" data-i18n="car.d">Седан, вид слева, в стиле технического чертежа. Выносками отмечены: передний бампер — замена, 85 000 ₸; капот — покраска, 40 000 ₸; левая фара — замена, 62 000 ₸.</desc>
+          <defs>
+            <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="5" stroke="#FF5B1F" stroke-width="1.5"/>
+            </pattern>
+            <g id="wheel">
+              <circle class="car-tire" r="34"/>
+              <circle class="car-rim" r="23"/>
+              <circle r="6"/>
+              <path class="car-thin" d="M0-6V-23M5.7-1.85 21.9-7.1M3.5 4.85 13.5 18.6M-3.5 4.85-13.5 18.6M-5.7-1.85-21.9-7.1"/>
+            </g>
+          </defs>
+
+          <!-- оформление листа -->
+          <g class="bp bp--faint" aria-hidden="true">
+            <path d="M4 52h16M12 44v16M620 52h16M628 44v16M4 468h16M12 460v16M620 468h16M628 460v16"/>
+          </g>
+          <text class="bp-cap" x="608" y="56" text-anchor="end" aria-hidden="true" data-i18n="car.view">Вид слева · М 1:25</text>
+
+          <!-- земля и размеры -->
+          <g class="bp" aria-hidden="true">
+            <path d="M44 340h568"/>
+            <path class="bp--faint" d="M52 340l-8 8M64 340l-8 8M76 340l-8 8M592 340l-8 8M604 340l-8 8M616 340l-8 8"/>
+          </g>
+          <g class="bp bp--dim" aria-hidden="true">
+            <path d="M170 350v28M452 350v28M170 372h282"/>
+            <path class="bp-arrow" d="M170 372l8-2.6v5.2zM452 372l-8-2.6v5.2z"/>
+            <text class="bp-num" x="311" y="366" text-anchor="middle">2 825</text>
+            <path d="M372 195h240M606 195v145"/>
+            <path class="bp-arrow" d="M606 195l-2.6 8h5.2zM606 340l-2.6-8h5.2z"/>
+            <text class="bp-num" x="598" y="268" text-anchor="middle" transform="rotate(-90 598 268)">1 445</text>
+          </g>
+
+          <!-- автомобиль: нос слева, y отсчитывается вверх от земли -->
+          <g class="car" transform="translate(75 340)" aria-hidden="true">
+            <path class="car-body" d="M12-21C5-22 1-28 1-38L0-50C1-60 6-69 14-74 50-84 105-92 152-97L226-137C236-142 252-145 275-145L318-144C345-142 362-136 378-128L428-104C440-100 462-98 478-97 485-96 489-90 489-80L490-56C490-40 487-30 481-24L474-21H415A40 40 0 1 0 339-21H133A40 40 0 1 0 57-21Z"/>
+            <path class="car-glass" d="M170-99 231-131.5C240-136 256-138 275-138L317-137C340-135.5 356-130.5 371-123L409-104.5C404-102.5 398-102 390-102Z"/>
+            <path class="car-body" d="M285.5-138H294L293-100.7H284.5Z"/>
+            <path d="M366-125.4V-101.7"/>
+            <!-- капот, крыло, двери -->
+            <path d="M56-79.5C92-83 126-87 160-90"/>
+            <path d="M43.6-75 59.3-52"/>
+            <path d="M163-97C158-80 157-50 160-27"/>
+            <path d="M289-100.7V-27"/>
+            <path d="M366-101.7C368-88 351-73 343-58 339.5-50 338-40 338-27"/>
+            <path class="car-thin" d="M134-27H338"/>
+            <path class="car-thin" d="M72-70C160-82 320-88 466-86"/>
+            <path class="car-thin" d="M3-36C14-37 26-38 40-38M490-58C465-59 438-58 411-56"/>
+            <rect x="264" y="-93" width="16" height="4" rx="2"/>
+            <rect x="344" y="-94" width="16" height="4" rx="2"/>
+            <path class="car-body" d="M163-99C163-104 166-108 171-108.5L180-108C183-107 183-102 181-99.5Z"/>
+            <!-- фара и фонарь -->
+            <path class="car-body" d="M2-58.6C4-64 7-69 11-71.6 26-77 42-79.6 56-80 40-74 22-65 2-58.6Z"/>
+            <path class="car-body" d="M489-82C480-84 468-88 458-92 466-95 476-96.5 483-96 487-94 489-89 489-82Z"/>
+            <!-- колёса -->
+            <use href="#wheel" x="95" y="-34"/>
+            <use href="#wheel" x="377" y="-34"/>
+            <path class="bp--axis" d="M95-84V8M45-34H145M377-84V8M327-34H427"/>
+          </g>
+
+          <!-- зоны повреждений -->
+          <g transform="translate(75 340)" aria-hidden="true">
+            <path class="zone" style="--i:0" d="M12-21C5-22 1-28 1-38L0-50C.4-53.5 1-56 2-58.6 17-63.4 30.9-69.7 43.6-75L59.3-52A40 40 0 0 0 57.2-21Z"/>
+            <path class="zone" style="--i:1" d="M14-74C50-84 105-92 152-97L160-90C126-87 92-83 56-79.5 42-79.3 26-77 11-71.6Z"/>
+            <path class="zone" style="--i:2" d="M2-58.6C4-64 7-69 11-71.6 26-77 42-79.6 56-80 40-74 22-65 2-58.6Z"/>
+          </g>
+
+          <line class="scanline" x1="0" y1="176" x2="0" y2="356" aria-hidden="true"/>
+
+          <!-- выносные линии (планшет и десктоп) -->
+          <g class="leaders" aria-hidden="true">
+            <path class="leader" style="--i:0" pathLength="1" d="M97 298 36 392"/>
+            <path class="leader" style="--i:1" pathLength="1" d="M175 253 280 168"/>
+            <path class="leader" style="--i:2" pathLength="1" d="M99 270 24 96"/>
+          </g>
+
+          <!-- номера позиций (телефон) -->
+          <g class="marks" aria-hidden="true">
+            <g class="mark" style="--i:0"><path d="M97 298 53.5 317.1"/><circle cx="38" cy="324" r="17"/><text x="38" y="330.5">1</text></g>
+            <g class="mark" style="--i:1"><path d="M175 253 183.4 223.4"/><circle cx="188" cy="207" r="17"/><text x="188" y="213.5">2</text></g>
+            <g class="mark" style="--i:2"><path d="M99 270 55.5 250.9"/><circle cx="40" cy="244" r="17"/><text x="40" y="250.5">3</text></g>
+          </g>
+
+          <!-- точки повреждений -->
+          <g aria-hidden="true">
+            <g transform="translate(97 298)"><g class="dot__in" style="--i:0"><circle class="dot__ring" r="9"/><circle class="dot__core" r="4.5"/></g></g>
+            <g transform="translate(175 253)"><g class="dot__in" style="--i:1"><circle class="dot__ring" r="9"/><circle class="dot__core" r="4.5"/></g></g>
+            <g transform="translate(99 270)"><g class="dot__in" style="--i:2"><circle class="dot__ring" r="9"/><circle class="dot__core" r="4.5"/></g></g>
+          </g>
+        </svg>
+      </div>
+
+      <figcaption>
+        <ol class="callouts">
+          <li class="callout callout--below" style="--x:36;--y:392;--i:0">
+            <span class="callout__n" aria-hidden="true">1</span>
+            <span class="callout__name" data-i18n="part.bumper">Передний бампер</span>
+            <span class="callout__meta"><span class="callout__act" data-i18n="act.replace">замена</span> <span class="callout__price">85&nbsp;000&nbsp;₸</span></span>
+          </li>
+          <li class="callout" style="--x:280;--y:168;--i:1">
+            <span class="callout__n" aria-hidden="true">2</span>
+            <span class="callout__name" data-i18n="part.hood">Капот</span>
+            <span class="callout__meta"><span class="callout__act" data-i18n="act.paint">покраска</span> <span class="callout__price">40&nbsp;000&nbsp;₸</span></span>
+          </li>
+          <li class="callout" style="--x:24;--y:96;--i:2">
+            <span class="callout__n" aria-hidden="true">3</span>
+            <span class="callout__name" data-i18n="part.lamp">Фара левая</span>
+            <span class="callout__meta"><span class="callout__act" data-i18n="act.replace">замена</span> <span class="callout__price">62&nbsp;000&nbsp;₸</span></span>
+          </li>
+        </ol>
+        <p class="sheet__total"><span data-i18n="sheet.total">Итого по фото</span> <strong>187&nbsp;000&nbsp;₸</strong></p>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ Проблема ============ -->
+<section class="section problem" aria-labelledby="problem-title">
+  <div class="wrap">
+    <header class="section__head problem__head" data-reveal>
+      <p class="eyebrow" data-i18n="problem.eyebrow">Проблема</p>
+      <h2 id="problem-title" data-i18n="problem.title">После аварии вопросов больше, чем ответов</h2>
+    </header>
+    <ul class="cards">
+      <li data-reveal style="--i:0">
+        <article class="card">
+          <span class="card__ico"><svg class="ico" aria-hidden="true"><use href="#i-help"/></svg></span>
+          <h3 data-i18n="problem.c1.t">Непонятно, сколько стоит ремонт</h3>
+          <p data-i18n="problem.c1.d">Пока не объедешь несколько сервисов, реальную сумму не узнать. А машина всё это время стоит.</p>
+        </article>
+      </li>
+      <li data-reveal style="--i:1">
+        <article class="card">
+          <span class="card__ico"><svg class="ico" aria-hidden="true"><use href="#i-trending"/></svg></span>
+          <h3 data-i18n="problem.c2.t">СТО может завысить цену</h3>
+          <p data-i18n="problem.c2.d">Без независимой оценки сложно понять, честная ли смета и не добавили ли в неё лишние работы.</p>
+        </article>
+      </li>
+      <li data-reveal style="--i:2">
+        <article class="card">
+          <span class="card__ico"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></span>
+          <h3 data-i18n="problem.c3.t">Запчасти приходится искать по десяткам объявлений</h3>
+          <p data-i18n="problem.c3.d">Цены разные, качество неизвестно, гарантий нет. На сравнение уходят дни.</p>
+        </article>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ Как это работает ============ -->
+<section class="section how" id="how" aria-labelledby="how-title">
+  <div class="wrap how__grid">
+    <div class="how__intro" data-reveal>
+      <p class="eyebrow" data-i18n="how.eyebrow">Три шага</p>
+      <h2 id="how-title" data-i18n="how.title">Как это работает</h2>
+      <p data-i18n="how.lead">От фотографии до списка запчастей с ценами, без поездок по сервисам.</p>
+      <div class="how__cta">
+        <button class="btn btn--primary" type="button" data-open="upload">
+          <svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="cta.upload">Загрузить фото</span>
+        </button>
+        <span data-i18n="hero.f1">Бесплатно для водителя</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li class="step" data-reveal>
+        <span class="step__num" aria-hidden="true">01</span>
+        <div class="step__title">
+          <svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg>
+          <h3 data-i18n="how.s1.t">Сфотографируйте повреждения</h3>
+        </div>
+        <p data-i18n="how.s1.d">Достаточно 3–5 снимков с разных ракурсов. Подойдёт обычная камера телефона.</p>
+      </li>
+      <li class="step" data-reveal>
+        <span class="step__num" aria-hidden="true">02</span>
+        <div class="step__title">
+          <svg class="ico" aria-hidden="true"><use href="#i-scan"/></svg>
+          <h3 data-i18n="how.s2.t">AI анализирует снимки</h3>
+        </div>
+        <p data-i18n="how.s2.d">Модель распознаёт повреждённые детали и по каждой решает: замена, ремонт или покраска.</p>
+      </li>
+      <li class="step" data-reveal>
+        <span class="step__num" aria-hidden="true">03</span>
+        <div class="step__title">
+          <svg class="ico" aria-hidden="true"><use href="#i-file"/></svg>
+          <h3 data-i18n="how.s3.t">Получите смету и список запчастей с ценами</h3>
+        </div>
+        <p data-i18n="how.s3.d">Сравните предложения проверенных продавцов и сразу закажите нужное.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ Пример результата ============ -->
+<section class="section result" id="result" aria-labelledby="result-title">
+  <div class="wrap result__grid">
+    <div class="result__copy" data-reveal>
+      <p class="eyebrow" data-i18n="result.eyebrow">Пример результата</p>
+      <h2 id="result-title" data-i18n="result.title">Понятная смета вместо догадок</h2>
+      <p class="lead" data-i18n="result.lead">По каждой детали видно, что с ней делать и сколько это стоит. Смету можно показать мастеру или сразу заказать запчасти.</p>
+      <ul class="ticks">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="result.p1">У каждой позиции указан тип работ: замена, ремонт или покраска</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="result.p2">Цены берутся из предложений проверенных продавцов</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="result.p3">Итог легко сравнить с тем, что называет СТО</span></li>
+      </ul>
+    </div>
+
+    <article class="estimate" id="estimate" aria-labelledby="est-title" data-reveal>
+      <header class="estimate__head">
+        <div>
+          <p class="estimate__kicker" data-i18n="est.kicker">Смета на ремонт</p>
+          <p class="estimate__no" id="est-title">№&nbsp;SK-2026-00418</p>
+        </div>
+        <span class="tag" data-i18n="est.sample">пример</span>
+      </header>
+      <dl class="estimate__meta">
+        <div><dt data-i18n="est.car">Автомобиль</dt><dd>Toyota Camry, 2019</dd></div>
+        <div><dt data-i18n="est.city">Город</dt><dd data-i18n="est.almaty">Алматы</dd></div>
+        <div><dt data-i18n="est.date">Дата</dt><dd class="mono" data-today>11.11.2026</dd></div>
+      </dl>
+      <table class="estimate__table">
+        <caption class="sr-only" data-i18n="est.caption">Детали, действия и цены</caption>
+        <thead>
+          <tr><th scope="col" data-i18n="est.th1">Деталь</th><th scope="col" data-i18n="est.th2">Действие</th><th scope="col" class="num" data-i18n="est.th3">Цена</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row" data-i18n="part.bumper">Передний бампер</th><td><span class="act act--replace" data-i18n="act.replace">замена</span></td><td class="num">85&nbsp;000&nbsp;₸</td></tr>
+          <tr><th scope="row" data-i18n="part.hood">Капот</th><td><span class="act act--paint" data-i18n="act.paint">покраска</span></td><td class="num">40&nbsp;000&nbsp;₸</td></tr>
+          <tr><th scope="row" data-i18n="part.lamp">Фара левая</th><td><span class="act act--replace" data-i18n="act.replace">замена</span></td><td class="num">62&nbsp;000&nbsp;₸</td></tr>
+          <tr><th scope="row" data-i18n="part.fender">Крыло переднее левое</th><td><span class="act act--repair" data-i18n="act.repair">ремонт</span></td><td class="num">28&nbsp;000&nbsp;₸</td></tr>
+          <tr><th scope="row" data-i18n="part.grille">Решётка радиатора</th><td><span class="act act--replace" data-i18n="act.replace">замена</span></td><td class="num">24&nbsp;000&nbsp;₸</td></tr>
+        </tbody>
+      </table>
+      <dl class="estimate__sum">
+        <div><dt data-i18n="est.parts">Запчасти</dt><dd>171&nbsp;000&nbsp;₸</dd></div>
+        <div><dt data-i18n="est.works">Работы</dt><dd>68&nbsp;000&nbsp;₸</dd></div>
+        <div class="estimate__total"><dt data-i18n="est.total">Итого</dt><dd>239&nbsp;000&nbsp;₸</dd></div>
+      </dl>
+      <button class="btn btn--primary btn--block" type="button" data-buy>
+        <svg class="ico" aria-hidden="true"><use href="#i-cart"/></svg><span data-i18n="est.buy">Купить запчасти</span>
+      </button>
+      <div class="estimate__get">
+        <p class="estimate__get-t" data-i18n="est.get">Получить смету</p>
+        <div class="share">
+          <a class="btn btn--ghost" data-share="wa" href="https://api.whatsapp.com/send" target="_blank" rel="noopener noreferrer"><svg class="ico" aria-hidden="true"><use href="#i-message"/></svg>WhatsApp</a>
+          <a class="btn btn--ghost" data-share="tg" href="https://t.me/" target="_blank" rel="noopener noreferrer"><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg>Telegram</a>
+          <button class="btn btn--ghost" type="button" data-pdf><svg class="ico" aria-hidden="true"><use href="#i-file"/></svg>PDF</button>
+        </div>
+        <button class="btn btn--text estimate__save" type="button" data-save><svg class="ico" aria-hidden="true"><use href="#i-bookmark"/></svg><span data-i18n="est.save">Сохранить в личный кабинет</span></button>
+        <p class="share__status" role="status" hidden></p>
+      </div>
+      <p class="estimate__note" data-i18n="est.note">Это образец. Цены в нём условные.</p>
+    </article>
+  </div>
+</section>
+
+<!-- ============ Для СТО и продавцов ============ -->
+<section class="section partners" id="partners" aria-labelledby="partners-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="partners__panel" data-reveal>
+      <div class="partners__copy">
+        <p class="eyebrow" data-i18n="partners.eyebrow">Партнёрам</p>
+        <h2 id="partners-title" data-i18n="partners.title">Для СТО и продавцов запчастей</h2>
+        <p class="lead" data-i18n="partners.lead">Получайте готовых клиентов, платите только за продажи.</p>
+        <button class="btn btn--dark" type="button" data-open="partner">
+          <span data-i18n="partners.cta">Стать партнёром</span><svg class="ico" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+        </button>
+      </div>
+      <ul class="plist">
+        <li>
+          <span class="plist__ico"><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg></span>
+          <div><h3 data-i18n="partners.f1.t">Клиент с готовой сметой</h3><p data-i18n="partners.f1.d">Водитель уже знает, что ему нужно: список деталей и работ составлен заранее.</p></div>
+        </li>
+        <li>
+          <span class="plist__ico"><svg class="ico" aria-hidden="true"><use href="#i-percent"/></svg></span>
+          <div><h3 data-i18n="partners.f2.t">Оплата только за результат</h3><p data-i18n="partners.f2.d">Абонентской платы нет. Комиссия берётся только с продажи, оформленной через платформу.</p></div>
+        </li>
+        <li>
+          <span class="plist__ico"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg></span>
+          <div><h3 data-i18n="partners.f3.t">Заявки из вашего города</h3><p data-i18n="partners.f3.d">Вы получаете запросы по тем маркам и категориям запчастей, с которыми работаете.</p></div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Преимущества ============ -->
+<section class="section stats" aria-labelledby="stats-title" style="padding-top:0">
+  <div class="wrap">
+    <header class="section__head" data-reveal>
+      <p class="eyebrow" data-i18n="stats.eyebrow">Преимущества</p>
+      <h2 id="stats-title" data-i18n="stats.title">Почему <span data-brand>Скан</span></h2>
+    </header>
+    <ul class="stats__grid">
+      <li class="stat" data-reveal style="--i:0">
+        <p class="stat__num"><span>2</span><small data-i18n="stats.s1.u">мин</small></p>
+        <h3 data-i18n="stats.s1.t">на оценку</h3>
+        <p data-i18n="stats.s1.d">От загрузки фото до готовой сметы.</p>
+      </li>
+      <li class="stat" data-reveal style="--i:1">
+        <p class="stat__num"><span>0</span><small>₸</small></p>
+        <h3 data-i18n="stats.s2.t">для водителя</h3>
+        <p data-i18n="stats.s2.d">Оценка и подбор запчастей бесплатны.</p>
+      </li>
+      <li class="stat" data-reveal style="--i:2">
+        <p class="stat__num"><span>100</span><small>%</small></p>
+        <h3 data-i18n="stats.s3.t">проверенные продавцы</h3>
+        <p data-i18n="stats.s3.d">Проверяем документы, отзывы и условия гарантии.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section faq" id="faq" aria-labelledby="faq-title" style="padding-top:0">
+  <div class="wrap faq__grid">
+    <div class="faq__aside" data-reveal>
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title" data-i18n="faq.title">Вопросы и ответы</h2>
+      <p data-i18n="faq.lead">Не нашли ответ? Напишите нам в Telegram или WhatsApp.</p>
+    </div>
+    <div class="faq__list" data-reveal>
+      <div class="faq__item is-open">
+        <h3><button class="faq__q" type="button" id="faq-q1" aria-expanded="true" aria-controls="faq-a1"><span data-i18n="faq.q1">Насколько точна оценка?</span><span class="faq__plus"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span></button></h3>
+        <div class="faq__a" id="faq-a1" role="region" aria-labelledby="faq-q1"><div><p data-i18n="faq.a1">AI оценивает видимые повреждения по фото и сверяет цены с актуальными предложениями продавцов. Это предварительная смета: скрытые дефекты может найти только мастер при осмотре. Чем больше чётких снимков с разных ракурсов, тем точнее результат.</p></div></div>
+      </div>
+      <div class="faq__item">
+        <h3><button class="faq__q" type="button" id="faq-q2" aria-expanded="false" aria-controls="faq-a2"><span data-i18n="faq.q2">Это бесплатно?</span><span class="faq__plus"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span></button></h3>
+        <div class="faq__a" id="faq-a2" role="region" aria-labelledby="faq-q2"><div><p data-i18n="faq.a2">Да. Для водителя оценка и подбор запчастей бесплатны. Мы зарабатываем на комиссии, которую платят продавцы и СТО с заказов, оформленных через платформу.</p></div></div>
+      </div>
+      <div class="faq__item">
+        <h3><button class="faq__q" type="button" id="faq-q3" aria-expanded="false" aria-controls="faq-a3"><span data-i18n="faq.q3">Какие марки авто поддерживаются?</span><span class="faq__plus"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span></button></h3>
+        <div class="faq__a" id="faq-a3" role="region" aria-labelledby="faq-q3"><div><p data-i18n="faq.a3">Самые популярные в Казахстане: Toyota, Hyundai, Kia, Chevrolet, Lada, Volkswagen, Nissan, Lexus и другие. Список регулярно пополняется. Если вашей модели пока нет, напишите нам, и мы сообщим, когда она появится.</p></div></div>
+      </div>
+      <div class="faq__item">
+        <h3><button class="faq__q" type="button" id="faq-q4" aria-expanded="false" aria-controls="faq-a4"><span data-i18n="faq.q4">Как выбираются продавцы?</span><span class="faq__plus"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span></button></h3>
+        <div class="faq__a" id="faq-a4" role="region" aria-labelledby="faq-q4"><div><p data-i18n="faq.a4">Каждый продавец и СТО проходит проверку: документы, отзывы клиентов, условия гарантии и возврата. Партнёров, на которых поступают жалобы, мы отключаем от платформы.</p></div></div>
+      </div>
+      <div class="faq__item">
+        <h3><button class="faq__q" type="button" id="faq-q5" aria-expanded="false" aria-controls="faq-a5"><span data-i18n="faq.q5">Можно ли использовать для страховой?</span><span class="faq__plus"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span></button></h3>
+        <div class="faq__a" id="faq-a5" role="region" aria-labelledby="faq-q5"><div><p data-i18n="faq.a5">Смета носит информационный характер и не заменяет официальную экспертизу. Но она помогает подготовиться к разговору со страховой и понять, насколько справедлива предложенная выплата.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Финальный CTA ============ -->
+<section class="section cta" id="start" aria-labelledby="cta-title">
+  <div class="wrap">
+    <div class="cta__panel" data-reveal>
+      <div>
+        <h2 id="cta-title" data-i18n="cta.title">Оцените ущерб прямо сейчас</h2>
+        <p data-i18n="cta.lead">Сфотографируйте повреждения, и через пару минут у вас будет смета с ценами.</p>
+      </div>
+      <div class="cta__action">
+        <button class="btn btn--primary btn--lg" type="button" data-open="upload">
+          <svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="cta.upload">Загрузить фото</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ Футер ============ -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__grid">
+      <div class="footer__about">
+        <a class="logo" href="#top" aria-label="Скан — на главную" data-i18n-attr="aria-label:a11y.home">
+          <svg class="logo__mark" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.75" fill="none" stroke="#15171C" stroke-width="1.5"/><circle cx="10" cy="10" r="3.75" fill="#FF5B1F"/></svg>
+          <span data-brand>Скан</span>
+        </a>
+        <p data-i18n="footer.about">AI-оценка ремонта после ДТП и подбор запчастей у проверенных продавцов.</p>
+      </div>
+      <nav aria-label="Разделы" data-i18n-attr="aria-label:footer.nav">
+        <h2 data-i18n="footer.nav">Разделы</h2>
+        <ul>
+          <li><a href="#how" data-i18n="nav.how">Как работает</a></li>
+          <li><a href="#partners" data-i18n="nav.partners">Для СТО и продавцов</a></li>
+          <li><a href="#faq" data-i18n="nav.faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <div>
+        <h2 data-i18n="footer.contacts">Контакты</h2>
+        <!-- ЗАГЛУШКИ: замените телефон и почту на настоящие -->
+        <address>
+          <ul>
+            <li><a href="tel:+77000000000"><svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg><span class="mono">+7 700 000 00 00</span></a></li>
+            <li><a href="mailto:hello@example.com"><svg class="ico" aria-hidden="true"><use href="#i-mail"/></svg>hello@example.com</a></li>
+          </ul>
+        </address>
+      </div>
+      <div>
+        <h2 data-i18n="footer.social">Мессенджеры</h2>
+        <!-- ЗАГЛУШКИ: подставьте ссылки вида https://t.me/… и https://wa.me/7… -->
+        <ul>
+          <li><a href="https://t.me/" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-send"/></svg>Telegram</a></li>
+          <li><a href="https://wa.me/" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-message"/></svg>WhatsApp</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>© 2026 <span data-brand>Скан</span>. <span data-i18n="footer.rights">Все права защищены.</span></p>
+      <p data-i18n="footer.country">Казахстан</p>
+    </div>
+  </div>
+</footer>
+
+<!-- Кнопка, закреплённая внизу экрана на телефоне -->
+<div class="dock" id="dock" inert>
+  <button class="btn btn--primary btn--block" type="button" data-open="upload">
+    <svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="cta.upload">Загрузить фото</span>
+  </button>
+</div>
+
+<!-- ============ Диалог: загрузка фото (демо, без бэкенда) ============ -->
+<dialog class="dlg" id="dlg-upload" aria-labelledby="up-title">
+  <div class="dlg__head">
+    <h2 class="dlg__title" id="up-title" tabindex="-1" data-i18n="up.title.pick">Оценка ущерба по фото</h2>
+    <button class="iconbtn" type="button" data-close aria-label="Закрыть" data-i18n-attr="aria-label:a11y.close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dlg__body">
+    <!-- шаг 1: выбор фото -->
+    <div data-step="pick">
+      <label class="drop" id="up-drop">
+        <input class="sr-only" id="up-file" type="file" accept="image/*" multiple>
+        <span class="drop__ico"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg></span>
+        <strong data-i18n="up.drop">Сфотографируйте или выберите фото</strong>
+        <span class="drop__hint" data-i18n="up.formats">До 6 снимков · JPG, PNG, HEIC</span>
+      </label>
+      <p class="up-status" id="up-status" role="status"></p>
+      <ul class="thumbs" id="up-thumbs"></ul>
+      <ul class="tips">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="up.tip1">Общий план: повреждённая деталь целиком</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="up.tip2">Крупный план: само повреждение вблизи</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="up.tip3">Дневной свет, без бликов и теней</span></li>
+      </ul>
+      <p class="note"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span data-i18n="up.privacy">Демо-версия: фото остаются на вашем устройстве и никуда не отправляются.</span></p>
+    </div>
+    <!-- шаг 2: «анализ» -->
+    <div data-step="scan" hidden>
+      <div class="scan">
+        <img id="scan-img" alt="" hidden>
+        <div class="scan__ph" id="scan-ph"><svg class="ico" aria-hidden="true"><use href="#i-car"/></svg></div>
+        <span class="scan__line" aria-hidden="true"></span>
+      </div>
+      <ol class="scan__steps" id="scan-steps">
+        <li><span class="scan__dot"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span data-i18n="scan.s1">Распознаём детали кузова</span></li>
+        <li><span class="scan__dot"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span data-i18n="scan.s2">Определяем тип ремонта</span></li>
+        <li><span class="scan__dot"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span><span data-i18n="scan.s3">Подбираем запчасти и цены</span></li>
+      </ol>
+      <div class="progress" id="scan-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Ход анализа" data-i18n-attr="aria-label:scan.progress"><span></span></div>
+    </div>
+    <!-- шаг 3: пример сметы -->
+    <div data-step="done" hidden>
+      <p class="note note--box" id="done-note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="done.demo">Это демо: ниже пример сметы, а не результат анализа ваших фото.</span></p>
+      <div class="res-photos" id="res-photos"></div>
+      <div id="up-estimate"></div>
+      <p class="note" id="buy-note" role="status" hidden><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span data-i18n="done.buy">В демо-версии заказ недоступен. Он появится после запуска сервиса.</span></p>
+    </div>
+  </div>
+  <div class="dlg__foot" data-foot="pick">
+    <button class="btn btn--primary btn--block" type="button" id="up-go" disabled data-i18n="up.go">Рассчитать ремонт</button>
+    <button class="btn btn--text" type="button" id="up-sample" data-i18n="up.sample">Нет фото? Показать на примере</button>
+  </div>
+  <div class="dlg__foot" data-foot="done" hidden>
+    <button class="btn btn--ghost btn--block" type="button" id="up-again" data-i18n="done.again">Загрузить другие фото</button>
+  </div>
+</dialog>
+
+<!-- ============ Диалог: личный кабинет (Supabase Auth) ============ -->
+<dialog class="dlg dlg--sm" id="dlg-account" aria-labelledby="acc-title">
+  <div class="dlg__head">
+    <h2 class="dlg__title" id="acc-title" tabindex="-1" data-i18n="acc.title">Личный кабинет</h2>
+    <button class="iconbtn" type="button" data-close aria-label="Закрыть" data-i18n-attr="aria-label:a11y.close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dlg__body">
+    <!-- гость: вход или регистрация -->
+    <div id="acc-guest">
+      <div class="seg" role="group" aria-labelledby="acc-title">
+        <button type="button" data-acc-mode="in" aria-pressed="true" data-i18n="acc.in">Вход</button>
+        <button type="button" data-acc-mode="up" aria-pressed="false" data-i18n="acc.up">Регистрация</button>
+      </div>
+      <form id="acc-form" novalidate>
+        <div class="field">
+          <label for="acc-email" data-i18n="acc.email">Эл. почта</label>
+          <input id="acc-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="254" required>
+        </div>
+        <div class="field">
+          <label for="acc-pass" data-i18n="acc.pass">Пароль</label>
+          <input id="acc-pass" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+          <span class="field__hint" id="acc-pass-hint" data-i18n="acc.pass.hint" hidden>Не короче 8 символов</span>
+        </div>
+        <button class="btn btn--dark btn--block" type="submit" id="acc-submit" data-i18n="acc.in.submit">Войти</button>
+        <button class="btn btn--text btn--block" type="button" id="acc-forgot" data-i18n="acc.forgot">Забыли пароль?</button>
+        <p class="acc-consent" id="acc-consent" data-i18n="acc.consent" hidden>Создавая аккаунт, вы соглашаетесь на обработку персональных данных.</p>
+      </form>
+    </div>
+    <!-- смена пароля по ссылке из письма -->
+    <form id="acc-recovery" novalidate hidden>
+      <div class="field">
+        <label for="acc-newpass" data-i18n="acc.new.t">Новый пароль</label>
+        <input id="acc-newpass" name="new-password" type="password" autocomplete="new-password" maxlength="72" required>
+        <span class="field__hint" data-i18n="acc.pass.hint">Не короче 8 символов</span>
+      </div>
+      <button class="btn btn--dark btn--block" type="submit" data-i18n="acc.new.submit">Сохранить пароль</button>
+    </form>
+    <!-- пользователь вошёл -->
+    <div id="acc-user" hidden>
+      <div class="acc-card">
+        <span class="acc-ava"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg></span>
+        <span class="acc-card__email" id="acc-user-email"></span>
+      </div>
+      <h3 class="acc-h" data-i18n="acc.i1">Мои сметы</h3>
+      <ul class="acc-est" id="acc-estimates"></ul>
+      <p class="acc-empty" id="acc-empty" data-i18n="acc.empty">Сохранённых смет пока нет.</p>
+      <ul class="acc-list">
+        <li><svg class="ico" aria-hidden="true"><use href="#i-car"/></svg><span data-i18n="acc.i2">Мой гараж</span><span class="tag" data-i18n="acc.soon">скоро</span></li>
+        <li><svg class="ico" aria-hidden="true"><use href="#i-cart"/></svg><span data-i18n="acc.i3">Заказы</span><span class="tag" data-i18n="acc.soon">скоро</span></li>
+      </ul>
+      <button class="btn btn--ghost btn--block" type="button" id="acc-out"><svg class="ico" aria-hidden="true"><use href="#i-logout"/></svg><span data-i18n="acc.out">Выйти</span></button>
+    </div>
+    <p class="note" id="acc-msg" role="status" hidden><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span></span></p>
+  </div>
+</dialog>
+
+<!-- ============ Диалог: заявка партнёра (демо) ============ -->
+<dialog class="dlg dlg--sm" id="dlg-partner" aria-labelledby="pt-title">
+  <div class="dlg__head">
+    <h2 class="dlg__title" id="pt-title" tabindex="-1" data-i18n="pt.title">Заявка на партнёрство</h2>
+    <button class="iconbtn" type="button" data-close aria-label="Закрыть" data-i18n-attr="aria-label:a11y.close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dlg__body">
+    <form id="pt-form">
+      <div class="field">
+        <label for="pt-name" data-i18n="pt.name">Имя</label>
+        <input id="pt-name" name="name" type="text" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label for="pt-type" data-i18n="pt.type">Тип бизнеса</label>
+        <select id="pt-type" name="type">
+          <option value="sto" data-i18n="pt.type1">СТО / автосервис</option>
+          <option value="parts" data-i18n="pt.type2">Продавец запчастей</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pt-city" data-i18n="pt.city">Город</label>
+        <input id="pt-city" name="city" type="text" autocomplete="address-level2" placeholder="Алматы" data-i18n-attr="placeholder:est.almaty">
+      </div>
+      <div class="field">
+        <label for="pt-phone" data-i18n="pt.phone">Телефон</label>
+        <input id="pt-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 700 000 00 00" required>
+      </div>
+      <button class="btn btn--primary btn--block" type="submit" data-i18n="pt.send">Отправить заявку</button>
+    </form>
+    <div class="done" id="pt-done" role="status" hidden>
+      <span class="done__ico"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></span>
+      <h3 data-i18n="pt.done.t">Спасибо за интерес</h3>
+      <p data-i18n="pt.done.d">Это демо-форма: заявка никуда не отправлена. Приём заявок откроется после запуска.</p>
+      <button class="btn btn--ghost" type="button" data-close data-i18n="a11y.close">Закрыть</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Лист для печати / сохранения сметы в PDF -->
+<div id="print-sheet" aria-hidden="true"></div>
+
+<script src="config.js"></script>
+<script src="damage-i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
