@@ -32,15 +32,3 @@
 
 Сайт сжимает фото, отправляет его в серверную функцию `analyze` в Supabase, а она — в workflow Roboflow.
 Ключ Roboflow хранится только в секретах Supabase. Фото нигде не сохраняется. Анализ доступен только вошедшим пользователям, не больше 30 в сутки на аккаунт.
-
-1. **SQL Editor** → выполните `supabase/analysis.sql` (журнал для суточного лимита).
-2. **Edge Functions** → Deploy a new function → Via Editor → имя `analyze` → вставьте `supabase/functions/analyze/index.ts` → Deploy.
-3. В настройках функции выключите проверку JWT: функция сама проверяет пользователя.
-4. **Edge Functions → Secrets**:
-   - `ROBOFLOW_API_KEY` — ключ Roboflow;
-   - `ROBOFLOW_WORKSPACE` — `tylerhanjs-workspace`;
-   - `ROBOFLOW_WORKFLOW` — id workflow из примера кода Roboflow;
-   - `DAILY_LIMIT` — необязательно, по умолчанию 30.
-
-Цены в смете ориентировочные (таблица `PRICES` в `app.js`). Их можно переопределить в `config.js` полем `prices`.
-Пока модель определяет только повреждённую деталь, действие выбирается типовое: стекло и фары — замена, кузовные детали — ремонт и покраска, колесо и неуверенные находки — осмотр мастером.
